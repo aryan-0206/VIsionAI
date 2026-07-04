@@ -6,7 +6,7 @@ services:
     startCommand: "gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --keep-alive 5 --chdir backend app:app"
     envVars:
       - key: YOLO_MODEL
-        value: ../models/yolov8n.pt
+        value: ../models/yolov8n.onnx
       - key: FLASK_DEBUG
         value: "0"
       - key: CORS_ORIGINS

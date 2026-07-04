@@ -25,6 +25,7 @@ outputs/*
 *.pt
 !models/yolov8n.pt
 *.onnx
+!models/yolov8n.onnx
 
 # OS / IDE
 .DS_Store
