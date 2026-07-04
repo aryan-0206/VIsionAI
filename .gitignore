@@ -23,6 +23,7 @@ outputs/*
 !uploads/.gitkeep
 !outputs/.gitkeep
 *.pt
+!models/yolov8n.pt
 *.onnx
 
 # OS / IDE

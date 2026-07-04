@@ -1,6 +1,7 @@
 import json
 import os
 import platform
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -50,6 +51,28 @@ def get_engine() -> YOLOEngine | None:
     except Exception as exc:
         _engine_error = str(exc)
         return None
+
+
+def _prewarm_engine() -> None:
+    """Load YOLO model in a background thread at startup so the first request is fast."""
+    import logging
+    log = logging.getLogger("visionai.prewarm")
+    log.info("Pre-warming YOLO engine…")
+    engine = get_engine()
+    if engine:
+        # Run a tiny dummy inference to trigger JIT compilation
+        try:
+            dummy = np.zeros((64, 64, 3), dtype=np.uint8)
+            engine.detect_and_parse(dummy)
+            log.info("YOLO engine warm-up complete.")
+        except Exception as exc:
+            log.warning("Warm-up inference failed: %s", exc)
+    else:
+        log.warning("YOLO engine failed to load: %s", _engine_error)
+
+
+# Kick off pre-warming immediately (non-blocking)
+threading.Thread(target=_prewarm_engine, daemon=True).start()
 
 
 def load_history() -> list[dict[str, Any]]:

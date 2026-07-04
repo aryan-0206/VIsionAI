@@ -58,9 +58,21 @@ export function PlaceholderPage({ type }: PlaceholderPageProps) {
         body: form,
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `Server error (HTTP ${response.status})`;
+        try {
+          const errorJson = JSON.parse(errorText) as { error?: string };
+          if (errorJson.error) errorMessage = errorJson.error;
+        } catch {
+          if (errorText) errorMessage = errorText.slice(0, 100);
+        }
+        throw new Error(errorMessage);
+      }
+
       const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || `Detection failed with HTTP ${response.status}`);
+      if (!data.success) {
+        throw new Error(data.error || 'Detection failed.');
       }
 
       setResult(data as DetectionResult);
