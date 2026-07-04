@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: visionai
+    env: python
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT --chdir backend app:app"
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: YOLO_MODEL
+        value: ../models/yolov8n.pt
+      - key: CAMERA_INDEX
+        value: "0"

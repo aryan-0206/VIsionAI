@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/* ============================================================
+   VisionAI Phase 7C — Global Styles
+   ============================================================ */
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
+}
+
+/* Range input styling */
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #7c3aed;
+  cursor: pointer;
+  border: 2px solid #a78bfa;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+  transition: all 0.15s;
+}
+input[type='range']::-webkit-slider-thumb:hover {
+  background: #6d28d9;
+  box-shadow: 0 0 0 5px rgba(124, 58, 237, 0.3);
+}
+
+/* Toast progress bar shrink animation */
+@keyframes shrink {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+.animate-shrink {
+  animation: shrink linear forwards;
+}
+
+/* Slide-in from right */
+@keyframes slideInFromRight {
+  from { transform: translateX(1rem); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+.animate-in {
+  animation-fill-mode: both;
+}
+.slide-in-from-right-4 {
+  animation-name: slideInFromRight;
+}
+.fade-in {
+  animation-name: slideInFromRight;
+}
+.duration-300 {
+  animation-duration: 300ms;
+}
+
+/* Glow effects */
+.glow-violet {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.3), 0 0 40px rgba(124, 58, 237, 0.1);
+}
+.glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), 0 0 40px rgba(59, 130, 246, 0.1);
+}
+.glow-red {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3), 0 0 40px rgba(239, 68, 68, 0.1);
+}
+.glow-green {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3), 0 0 40px rgba(16, 185, 129, 0.1);
+}
+.glow-amber {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.3), 0 0 40px rgba(245, 158, 11, 0.1);
+}
+
+/* Timeline connector line */
+.timeline-line::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 20px;
+  bottom: -8px;
+  width: 1px;
+  background: linear-gradient(to bottom, rgba(100, 116, 139, 0.4), transparent);
+}
+
+/* Pulse ring for live indicator */
+@keyframes pulseRing {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulseRing 1.5s ease-out infinite;
+}
+
+/* Grid pattern background */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Video feed placeholder */
+.video-scanline {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 65, 0.03) 2px,
+    rgba(0, 255, 65, 0.03) 4px
+  );
+}
