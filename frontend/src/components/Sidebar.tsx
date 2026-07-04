@@ -51,7 +51,7 @@ export function Sidebar() {
         {sidebarOpen && (
           <div className="min-w-0">
             <p className="text-sm font-bold text-white tracking-wide">VisionAI</p>
-            <p className="text-[10px] text-slate-400">Phase 7C</p>
+            <p className="text-[10px] text-slate-400">AI Detection Suite</p>
           </div>
         )}
       </div>

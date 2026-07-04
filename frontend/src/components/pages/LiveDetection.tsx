@@ -1,5 +1,5 @@
 // ============================================================
-// VisionAI Phase 7C — Live Detection Page
+// VisionAI — Live Detection Page
 // ============================================================
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
@@ -13,7 +13,6 @@ import { screenshotManager } from '../../services/screenshotManager';
 import { Card, CardBody } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { Toggle } from '../ui/Toggle';
 import { AlertPanel } from '../panels/AlertPanel';
 import { Timeline } from '../panels/Timeline';
 import type { Detection, EventLogEntry } from '../../types';
@@ -235,7 +234,6 @@ export function LiveDetection() {
 
   const [showAlertPanel, setShowAlertPanel] = useState(true);
   const [showTimeline, setShowTimeline] = useState(true);
-  const [demoMode, setDemoMode] = useState(!backendConnected);
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const healthRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
@@ -273,8 +271,7 @@ export function LiveDetection() {
       try {
         const res = await fetch(`${backendUrl}/api/health`, { signal: AbortSignal.timeout(2000) });
         setBackendConnected(res.ok);
-        if (res.ok) setDemoMode(false);
-      } catch {
+          } catch {
         setBackendConnected(false);
       }
     }
@@ -288,8 +285,8 @@ export function LiveDetection() {
   // Detection loop
   // -------------------------------------------------------
   const runDetectionCycle = useCallback(async () => {
-    if (demoMode || !backendConnected) {
-      // Generate demo detections
+    if (!backendConnected) {
+      // Auto-fallback: generate demo detections when backend is offline
       const count = Math.floor(Math.random() * 3) + 1;
       const detections: Detection[] = Array.from({ length: count }, generateDemoDetection);
       setCurrentDetections(detections.map((d) => ({
@@ -324,18 +321,17 @@ export function LiveDetection() {
         // silent fail
       }
     }
-  }, [demoMode, backendConnected, backendUrl, settings, setCurrentDetections]);
+  }, [backendConnected, backendUrl, settings, setCurrentDetections]);
 
   // -------------------------------------------------------
   // Start / Stop streaming
   // -------------------------------------------------------
   function handleStart() {
     setIsStreaming(true);
-    // Stagger demo events at random intervals
-    const demoInterval = demoMode ? 2000 + Math.random() * 3000 : 1000;
+    const pollInterval = backendConnected ? 1000 : 2000 + Math.random() * 3000;
     intervalRef.current = setInterval(() => {
       void runDetectionCycle();
-    }, demoInterval);
+    }, pollInterval);
   }
 
   function handleStop() {
@@ -371,16 +367,8 @@ export function LiveDetection() {
           {backendConnected ? (
             <Badge variant="success" dot pulse>Backend Live</Badge>
           ) : (
-            <Badge variant="warning" dot>Demo Mode</Badge>
+            <Badge variant="warning" dot>Offline Mode</Badge>
           )}
-
-          <Toggle
-            checked={demoMode}
-            onChange={setDemoMode}
-            label="Demo"
-            size="sm"
-            color="amber"
-          />
 
           <button
             onClick={() => void detectionOrchestrator.syncSettings(settings, backendUrl)}

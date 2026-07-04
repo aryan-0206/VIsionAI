@@ -114,7 +114,7 @@ export default function App() {
       setTimeout(() => {
         addToast({
           style: 'info',
-          title: '🤖 VisionAI Phase 7C Ready',
+          title: '🤖 VisionAI Ready',
           object: 'system',
           confidence: 1,
           timestamp: Date.now(),

@@ -74,7 +74,6 @@ export function Header() {
         <span className="text-sm font-semibold text-slate-300">
           VisionAI
         </span>
-        <Badge variant="purple" className="text-[9px]">Phase 7C</Badge>
       </div>
 
       {/* Right: Quick controls + clock */}
