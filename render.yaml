@@ -3,11 +3,11 @@ services:
     name: visionai
     env: python
     buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "gunicorn --bind 0.0.0.0:$PORT --chdir backend app:app"
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --chdir backend app:app"
     envVars:
-      - key: PORT
-        value: 5000
       - key: YOLO_MODEL
-        value: ../models/yolov8n.pt
-      - key: CAMERA_INDEX
+        value: yolov8n.pt
+      - key: FLASK_DEBUG
         value: "0"
+      - key: CORS_ORIGINS
+        value: "*"
