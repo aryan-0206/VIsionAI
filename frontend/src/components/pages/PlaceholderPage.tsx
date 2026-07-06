@@ -37,10 +37,23 @@ export function PlaceholderPage({ type }: PlaceholderPageProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [mediaUrl, setMediaUrl] = useState<string>('');
+
   const isImage = type === 'image';
   const title = isImage ? 'Image Detection' : 'Video Detection';
   const endpoint = `${backendUrl}/api/detect/${type}`;
   const acceptedTypes = useMemo(() => isImage ? 'image/*' : 'video/*', [isImage]);
+
+  // Fetch output media through fetch() to bypass ngrok warning pages
+  useEffect(() => {
+    if (result && result.output_url) {
+      const url = `${backendUrl}${result.output_url}`;
+      fetch(url)
+        .then((r) => r.blob())
+        .then((blob) => setMediaUrl(URL.createObjectURL(blob)))
+        .catch(() => setMediaUrl(url));
+    }
+  }, [result, backendUrl]);
 
   async function runDetection() {
     if (!file) return;
@@ -48,6 +61,7 @@ export function PlaceholderPage({ type }: PlaceholderPageProps) {
     setLoading(true);
     setError('');
     setResult(null);
+    setMediaUrl('');
 
     try {
       const form = new FormData();
@@ -70,12 +84,22 @@ export function PlaceholderPage({ type }: PlaceholderPageProps) {
         throw new Error(errorMessage);
       }
 
-      const data = await response.json();
+      const data = await response.json() as DetectionResult;
       if (!data.success) {
         throw new Error(data.error || 'Detection failed.');
       }
 
-      setResult(data as DetectionResult);
+      setResult(data);
+      
+      // Fetch the actual media file using our global fetch interceptor to bypass ngrok warning
+      const outputUrl = `${backendUrl}${data.output_url}`;
+      try {
+        const mediaRes = await fetch(outputUrl);
+        const blob = await mediaRes.blob();
+        setMediaUrl(URL.createObjectURL(blob));
+      } catch {
+        setMediaUrl(outputUrl);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Detection failed.');
     } finally {
@@ -112,6 +136,7 @@ export function PlaceholderPage({ type }: PlaceholderPageProps) {
               onChange={(event) => {
                 setFile(event.target.files?.[0] ?? null);
                 setResult(null);
+                setMediaUrl('');
                 setError('');
               }}
             />
@@ -160,17 +185,25 @@ export function PlaceholderPage({ type }: PlaceholderPageProps) {
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
               <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-950">
                 {isImage ? (
-                  <img
-                    src={`${backendUrl}${result.output_url}`}
-                    alt="Detected output"
-                    className="max-h-[520px] w-full object-contain"
-                  />
+                  mediaUrl ? (
+                    <img
+                      src={mediaUrl}
+                      alt="Detected output"
+                      className="max-h-[520px] w-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-64 items-center justify-center text-slate-500">Loading output...</div>
+                  )
                 ) : (
-                  <video
-                    src={`${backendUrl}${result.output_url}`}
-                    className="max-h-[520px] w-full bg-black"
-                    controls
-                  />
+                  mediaUrl ? (
+                    <video
+                      src={mediaUrl}
+                      className="max-h-[520px] w-full bg-black"
+                      controls
+                    />
+                  ) : (
+                    <div className="flex h-64 items-center justify-center text-slate-500">Loading output...</div>
+                  )
                 )}
               </div>
 
