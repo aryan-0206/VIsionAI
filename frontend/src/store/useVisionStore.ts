@@ -142,12 +142,11 @@ interface VisionStore {
 }
 
 const getInitialBackendUrl = (): string => {
-  if (typeof window !== 'undefined') {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:5000';
-    }
-    return window.location.origin;
+  // 1. Env var set at build time (used by Vercel — points to your ngrok/backend URL)
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL as string;
   }
+  // 2. Local development fallback
   return 'http://localhost:5000';
 };
 
