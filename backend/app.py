@@ -125,13 +125,37 @@ def open_camera() -> cv2.VideoCapture | None:
         return _camera
 
     index = int(os.getenv("CAMERA_INDEX", "0"))
-    cap = cv2.VideoCapture(index, cv2.CAP_ANY)
-    if not cap.isOpened():
+
+    # On Windows, DirectShow (CAP_DSHOW) is far more reliable for webcam
+    # access than the default backend (CAP_ANY), which often silently fails
+    # with built-in and USB cameras.
+    _backends = (
+        [cv2.CAP_DSHOW, cv2.CAP_ANY]
+        if platform.system() == "Windows"
+        else [cv2.CAP_ANY]
+    )
+
+    cap: cv2.VideoCapture | None = None
+    for backend in _backends:
+        c = cv2.VideoCapture(index, backend)
+        if c.isOpened():
+            cap = c
+            break
+        c.release()
+
+    # Fallback: try camera indices 1-4 with each backend
+    if cap is None or not cap.isOpened():
         for fallback in range(1, 5):
-            cap = cv2.VideoCapture(fallback, cv2.CAP_ANY)
-            if cap.isOpened():
+            for backend in _backends:
+                c = cv2.VideoCapture(fallback, backend)
+                if c.isOpened():
+                    cap = c
+                    break
+                c.release()
+            if cap is not None and cap.isOpened():
                 break
-    if not cap.isOpened():
+
+    if cap is None or not cap.isOpened():
         return None
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(os.getenv("CAMERA_WIDTH", "1280")))
@@ -156,7 +180,7 @@ def placeholder_frame(message: str) -> np.ndarray:
 
 
 def mjpeg_stream():
-    global _last_frame, _latest_detections
+    global _last_frame, _latest_detections, _camera
     while True:
         cap = open_camera()
         if cap is None:
@@ -167,7 +191,13 @@ def mjpeg_stream():
 
         ok, frame = cap.read()
         if not ok or frame is None:
+            # Camera dropped — release and reset so open_camera() retries next cycle
+            cap.release()
+            _camera = None
             frame = placeholder_frame("No Camera Signal")
+            yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + encode_jpeg(frame) + b"\r\n"
+            time.sleep(0.5)
+            continue
         elif _detection_active:
             frame, detections, _ = detect_frame(frame)
             _latest_detections = [
@@ -177,6 +207,7 @@ def mjpeg_stream():
 
         _last_frame = frame.copy()
         yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + encode_jpeg(frame) + b"\r\n"
+
 
 
 @app.get("/api/health")
@@ -311,7 +342,14 @@ def detect_video():
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 480)
     output_filename = f"detected_{Path(filename).stem}.mp4"
     output_path = OUTPUT_DIR / output_filename
-    writer = cv2.VideoWriter(str(output_path), cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+    # Prefer H.264 (avc1) which all modern desktop browsers play natively
+    # via the HTML5 <video> element. Fall back to mp4v if avc1 is unavailable
+    # on the current OpenCV build (e.g. some Linux headless environments).
+    _fourcc_avc1 = cv2.VideoWriter_fourcc(*"avc1")
+    _fourcc_mp4v = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(str(output_path), _fourcc_avc1, fps, (width, height))
+    if not writer.isOpened():
+        writer = cv2.VideoWriter(str(output_path), _fourcc_mp4v, fps, (width, height))
 
     total_detections = 0
     frame_count = 0
@@ -452,7 +490,22 @@ def system_info():
 
 @app.get("/outputs/<path:filename>")
 def serve_output(filename: str):
-    return send_from_directory(OUTPUT_DIR, filename)
+    """Serve output files with full byte-range (HTTP 206) support.
+
+    Desktop browsers require Range requests to play <video> elements inline.
+    Flask's send_from_directory supports this when conditional=True is set.
+    """
+    response = send_from_directory(OUTPUT_DIR, filename, conditional=True, max_age=0)
+    # Ensure video files are served with the correct MIME type so browsers
+    # treat them as streamable video rather than a binary download.
+    lower = filename.lower()
+    if lower.endswith(".mp4"):
+        response.headers["Content-Type"] = "video/mp4"
+    elif lower.endswith(".webm"):
+        response.headers["Content-Type"] = "video/webm"
+    # Allow the frontend (possibly on a different port in dev) to fetch the file.
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
 
 
 @app.route("/")
