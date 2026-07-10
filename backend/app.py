@@ -549,16 +549,21 @@ def serve_root():
     dist_dir = PROJECT_DIR / "frontend" / "dist"
     if (dist_dir / "index.html").exists():
         return send_from_directory(dist_dir, "index.html")
-    return "Frontend build not found. Please run 'npm run build' inside the frontend directory.", 404
+    return "Frontend build not found. Run: cd frontend && npm run build", 404
+
+
+@app.route("/assets/<path:filename>")
+def serve_assets(filename: str):
+    """Serve Vite-built JS / CSS bundles."""
+    return send_from_directory(PROJECT_DIR / "frontend" / "dist" / "assets", filename)
 
 
 @app.errorhandler(404)
 def catch_all(e):
-    # If the requested path is an API endpoint, return standard 404
+    # API or camera endpoints return JSON 404
     if request.path.startswith("/api/") or request.path == "/video_feed":
         return jsonify({"error": "Not Found"}), 404
-    
-    # Otherwise fallback to frontend index.html for SPA routing
+    # All other paths fall through to the SPA shell
     dist_dir = PROJECT_DIR / "frontend" / "dist"
     if (dist_dir / "index.html").exists():
         return send_from_directory(dist_dir, "index.html")
@@ -600,7 +605,63 @@ def auto_start_ngrok(port: int) -> None:
         print(f"[ngrok] Could not start tunnel: {exc}")
 
 
+def ensure_frontend_built() -> bool:
+    """Build the React frontend if the dist/ folder is missing or empty.
+
+    Returns True if the build exists (or was just built), False on failure.
+    """
+    dist_dir = PROJECT_DIR / "frontend" / "dist"
+    index_html = dist_dir / "index.html"
+    if index_html.exists():
+        return True
+
+    print("[startup] Frontend build not found -- building now (this takes ~30s)...")
+    import subprocess
+    result = subprocess.run(
+        ["npm", "run", "build"],
+        cwd=str(PROJECT_DIR / "frontend"),
+        shell=True,
+    )
+    if result.returncode != 0:
+        print("[startup] WARNING: frontend build failed. Run manually: cd frontend && npm run build")
+        return False
+    print("[startup] Frontend built successfully.")
+    return True
+
+
 if __name__ == "__main__":
+    import webbrowser
+
     port = int(os.getenv("PORT", "5000"))
+    local_url = f"http://localhost:{port}"
+
+    # 1. Build frontend if needed
+    ensure_frontend_built()
+
+    # 2. Start ngrok tunnel (only if NGROK_AUTHTOKEN is in .env)
     auto_start_ngrok(port)
-    app.run(host=os.getenv("HOST", "0.0.0.0"), port=port, debug=os.getenv("FLASK_DEBUG") == "1", threaded=True)
+
+    # 3. Print startup banner
+    print("")
+    print("=" * 60)
+    print("  VisionAI Backend is starting...")
+    print(f"  Local app  : {local_url}")
+    print("  Press Ctrl+C to stop.")
+    print("=" * 60)
+    print("")
+
+    # 4. Open browser automatically (after a short delay so Flask is ready)
+    def open_browser():
+        time.sleep(1.5)
+        webbrowser.open(local_url)
+
+    threading.Thread(target=open_browser, daemon=True).start()
+
+    # 5. Start Flask
+    app.run(
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=port,
+        debug=os.getenv("FLASK_DEBUG") == "1",
+        threaded=True,
+        use_reloader=False,   # prevent double browser open on reload
+    )

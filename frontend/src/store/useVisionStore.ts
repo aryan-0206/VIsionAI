@@ -142,11 +142,16 @@ interface VisionStore {
 }
 
 const getInitialBackendUrl = (): string => {
-  // 1. Env var set at build time (used by Vercel — points to your ngrok/backend URL)
+  // Runtime check: if we're on localhost, Flask IS the backend at port 5000.
+  // This makes `python app.py` work out-of-the-box with zero config.
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return `http://localhost:${window.location.port === '5000' ? '5000' : '5000'}`;
+  }
+  // Production (Vercel / any other host): use the env var baked in at build time.
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL as string;
   }
-  // 2. Local development fallback
+  // Last fallback
   return 'http://localhost:5000';
 };
 
