@@ -1,7 +1,13 @@
 Flask>=3.0.0
 flask-cors>=4.0.0
 numpy>=1.26.0
-opencv-python>=4.9.0
+# headless variant works on Linux servers (Render) AND local Windows
+# (CAP_DSHOW in open_camera() handles Windows webcam without GUI libs)
+opencv-python-headless>=4.9.0
 Pillow>=10.0.0
 pyttsx3>=2.90
 gunicorn>=21.2.0
+# auto-starts ngrok tunnel when NGROK_AUTHTOKEN is set in .env
+pyngrok>=7.0.0
+# loads backend/.env automatically on startup
+python-dotenv>=1.0.0

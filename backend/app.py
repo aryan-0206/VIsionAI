@@ -8,6 +8,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+# Load .env file if present (local dev only — no effect on Render/cloud)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+except ImportError:
+    pass  # python-dotenv not installed — fine for cloud deploys
+
 import cv2
 import numpy as np
 from flask import Flask, Response, jsonify, make_response, request, send_from_directory
@@ -558,6 +565,42 @@ def catch_all(e):
     return "Not Found", 404
 
 
+def auto_start_ngrok(port: int) -> None:
+    """Auto-start an ngrok tunnel if NGROK_AUTHTOKEN is set in the environment.
+
+    Set NGROK_AUTHTOKEN in backend/.env once — tunnel opens automatically
+    every time you run `python app.py`.  Optionally set NGROK_DOMAIN to a
+    free static ngrok domain so your Vercel VITE_API_URL never changes.
+    """
+    token = os.getenv("NGROK_AUTHTOKEN", "").strip()
+    if not token:
+        return
+    try:
+        from pyngrok import ngrok, conf
+        conf.get_default().auth_token = token
+
+        domain = os.getenv("NGROK_DOMAIN", "").strip()
+        kwargs = {"bind_tls": True}
+        if domain:
+            kwargs["hostname"] = domain
+
+        tunnel = ngrok.connect(port, **kwargs)
+        public_url = tunnel.public_url
+
+        print("")
+        print("=" * 60)
+        print("  [NGROK] Tunnel is OPEN")
+        print(f"  Public URL : {public_url}")
+        print("  Set this as VITE_API_URL in Vercel then redeploy.")
+        if domain:
+            print("  (Using static domain -- URL never changes!)")
+        print("=" * 60)
+        print("")
+    except Exception as exc:
+        print(f"[ngrok] Could not start tunnel: {exc}")
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
+    auto_start_ngrok(port)
     app.run(host=os.getenv("HOST", "0.0.0.0"), port=port, debug=os.getenv("FLASK_DEBUG") == "1", threaded=True)
