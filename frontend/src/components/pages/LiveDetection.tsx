@@ -52,6 +52,61 @@ function generateDemoDetection(): Detection {
 // -----------------------------------------------------------
 // Camera Feed Placeholder
 // -----------------------------------------------------------
+function MjpegCanvas({ url }: { url: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const activeRef = useRef(true);
+
+  useEffect(() => {
+    activeRef.current = true;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Poll individual JPEG frames via fetch so the ngrok bypass header is applied
+    async function poll() {
+      while (activeRef.current) {
+        try {
+          const res = await fetch(`${url}?t=${Date.now()}`);
+          if (!res.ok) { await new Promise(r => setTimeout(r, 500)); continue; }
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          await new Promise<void>((resolve) => {
+            const img = new window.Image();
+            img.onload = () => {
+              canvas.width = img.naturalWidth || 640;
+              canvas.height = img.naturalHeight || 480;
+              ctx.drawImage(img, 0, 0);
+              URL.revokeObjectURL(blobUrl);
+              resolve();
+            };
+            img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(); };
+            img.src = blobUrl;
+          });
+        } catch {
+          await new Promise(r => setTimeout(r, 500));
+        }
+        // ~15 fps
+        await new Promise(r => setTimeout(r, 66));
+      }
+    }
+
+    void poll();
+    return () => { activeRef.current = false; };
+  }, [url]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="h-full w-full object-cover"
+      style={{ background: '#000' }}
+    />
+  );
+}
+
+// -----------------------------------------------------------
+// Camera Feed Placeholder
+// -----------------------------------------------------------
 function CameraFeedPlaceholder({ isStreaming, onStart, onStop }: {
   isStreaming: boolean;
   onStart: () => void;
@@ -66,14 +121,9 @@ function CameraFeedPlaceholder({ isStreaming, onStart, onStop }: {
       {/* Scanline overlay */}
       <div className="absolute inset-0 video-scanline opacity-30 pointer-events-none z-10" />
 
-      {/* Backend stream */}
+      {/* Backend stream — uses fetch-based canvas poller to bypass ngrok warning */}
       {backendConnected && showStream ? (
-        <img
-          src={`${backendUrl}/video_feed`}
-          alt="Live camera feed"
-          className="h-full w-full object-cover"
-          onError={() => setShowStream(false)}
-        />
+        <MjpegCanvas url={`${backendUrl}/api/camera/frame`} />
       ) : (
         <div className="flex h-full flex-col items-center justify-center gap-4 bg-grid">
           {/* Grid corner decorations */}

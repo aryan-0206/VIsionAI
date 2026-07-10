@@ -10,7 +10,7 @@ from typing import Any
 
 import cv2
 import numpy as np
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, make_response, request, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
@@ -207,6 +207,35 @@ def mjpeg_stream():
 
         _last_frame = frame.copy()
         yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + encode_jpeg(frame) + b"\r\n"
+
+
+@app.get("/api/camera/frame")
+def camera_frame():
+    """Return a single JPEG frame from the camera.
+
+    The frontend polls this endpoint via fetch() (which carries the
+    ngrok-skip-browser-warning header) and renders the result to a canvas,
+    bypassing the ngrok browser warning page that blocks <img src> MJPEG streams.
+    """
+    global _last_frame
+    cap = open_camera()
+    if cap is not None:
+        ok, frame = cap.read()
+        if ok and frame is not None:
+            if _detection_active:
+                frame, _, _ = detect_frame(frame)
+            _last_frame = frame.copy()
+
+    if _last_frame is not None:
+        jpeg = encode_jpeg(_last_frame)
+    else:
+        jpeg = encode_jpeg(placeholder_frame("Camera Offline"))
+
+    response = make_response(jpeg)
+    response.headers["Content-Type"] = "image/jpeg"
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
 
 
 
