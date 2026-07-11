@@ -584,6 +584,12 @@ def auto_start_ngrok(port: int) -> None:
         from pyngrok import ngrok, conf
         conf.get_default().auth_token = token
 
+        # Try to use the system-installed ngrok binary to bypass download issues
+        # (user has it installed globally as verified by config commands)
+        import shutil
+        if shutil.which("ngrok"):
+            conf.get_default().ngrok_path = "ngrok"
+
         domain = os.getenv("NGROK_DOMAIN", "").strip()
         kwargs = {"bind_tls": True}
         if domain:
@@ -602,7 +608,27 @@ def auto_start_ngrok(port: int) -> None:
         print("=" * 60)
         print("")
     except Exception as exc:
-        print(f"[ngrok] Could not start tunnel: {exc}")
+        print(f"[ngrok] Attempting system ngrok fallback due to: {exc}")
+        try:
+            from pyngrok import ngrok, conf
+            conf.get_default().ngrok_path = "ngrok"
+            conf.get_default().auth_token = token
+            
+            domain = os.getenv("NGROK_DOMAIN", "").strip()
+            kwargs = {"bind_tls": True}
+            if domain:
+                kwargs["hostname"] = domain
+
+            tunnel = ngrok.connect(port, **kwargs)
+            public_url = tunnel.public_url
+            print("")
+            print("=" * 60)
+            print("  [NGROK] Tunnel is OPEN (System Fallback)")
+            print(f"  Public URL : {public_url}")
+            print("=" * 60)
+            print("")
+        except Exception as fallback_exc:
+            print(f"[ngrok] Could not start tunnel (System Fallback failed): {fallback_exc}")
 
 
 def ensure_frontend_built() -> bool:
